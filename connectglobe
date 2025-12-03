@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>GlobeChat</title>
+  <meta name="theme-color" content="#1DA1F2"/>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
+  <link rel="icon" href="icon-192.png"/>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+
+  <style>
+    :root {
+      --primary: #1DA1F2;
+      --dark: #000000;
+      --light: #FFFFFF;
+      --gray: #8899A6;
+      --bg: #F7F9F9;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: #0F1419;
+      padding-bottom: 80px;
+      overscroll-behavior: none;
+    }
+    .header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #ddd;
+      padding: 15px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--primary);
+      z-index: 1000;
+    }
+    .main { padding-top: 70px; }
+    .post-box {
+      background: white;
+      padding: 15px;
+      border-bottom: 1px solid #ddd;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 999;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    }
+    textarea {
+      width: 100%;
+      border: none;
+      outline: none;
+      font-size: 18px;
+      resize: none;
+      height: 50px;
+      padding: 10px 0;
+    }
+    .post-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .post-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 50px;
+      font-weight: bold;
+    }
+    .feed { padding: 10px; }
+    .post {
+      background: white;
+      border-radius: 16px;
+      padding: 15px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .avatar {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(45deg, #1DA1F2, #17BF63);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 20px;
+      float: left;
+      margin-right: 12px;
+    }
+    .post-header { overflow: hidden; margin-bottom: 8px; }
+    .name { font-weight: bold; }
+    .username { color: var(--gray); font-size: 14px; }
+    .post-content { margin: 10px 0; font-size: 17px; clear: both; }
+    .post-image {
+      max-width: 100%;
+      border-radius: 12px;
+      margin-top: 10px;
+    }
+    .post-footer {
+      display: flex;
+      justify-content: space-around;
+      padding-top: 10px;
+      color: var(--gray);
+      font-size: 15px;
+    }
+    .like-btn.liked { color: #E0245E; }
+    .auth-screen {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+      z-index: 2000;
+    }
+    .logo-big { font-size: 80px; margin-bottom: 20px; }
+    input {
+      width: 100%;
+      max-width: 350px;
+      padding: 15px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      font-size: 16px;
+    }
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 15px;
+      width: 100%;
+      max-width: 350px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Auth Screen -->
+  <div id="authScreen" class="auth-screen">
+    <div class="logo-big">GlobeChat</div>
+    <h1>Connect with the World</h1>
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <button class="btn" id="loginBtn">Log In</button>
+    <button class="btn" style="background:#333;" id="signupBtn">Create Account</button>
+  </div>
+
+  <!-- Main App -->
+  <div id="app" class="hidden">
+    <div class="header">GlobeChat</div>
+
+    <div class="main">
+      <div id="feed" class="feed"></div>
+    </div>
+
+    <!-- Floating Post Box -->
+    <div class="post-box">
+      <textarea id="postText" placeholder="What's on your mind?"></textarea>
+      <div class="post-actions">
+        <button id="imageBtn" style="font-size:24px;background:none;border:none;">Photo</button>
+        <input type="file" id="imageInput" accept="image/*" style="display:none;">
+        <button class="post-btn" id="submitPost">Post</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Your Firebase Config (Replace!) -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "your-app.firebaseapp.com",
+      projectId: "your-app",
+      storageBucket: "your-app.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abc123"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+    const storage = firebase.storage();
+
+    const authScreen = document.getElementById('authScreen');
+    const app = document.getElementById('app');
+    let currentUser = null;
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        authScreen.classList.add('hidden');
+        app.classList.remove('hidden');
+        loadPosts();
+      } else {
+        authScreen.classList.remove('hidden');
+        app.classList.add('hidden');
+      }
+    });
+
+    document.getElementById('loginBtn').onclick = () => {
+      const email = document.getElementById('email').value;
+      const pass = document.getElementById('password').value;
+      auth.signInWithEmailAndPassword(email, pass).catch(e => alert(e.message));
+    };
+
+    document.getElementById('signupBtn').onclick = () => {
+      const email = document.getElementById('email').value;
+      const pass = document.getElementById('password').value;
+      auth.createUserWithEmailAndPassword(email, pass).catch(e => alert(e.message));
+    };
+
+    document.getElementById('imageBtn').onclick = () => document.getElementById('imageInput').click();
+
+    document.getElementById('submitPost').onclick = async () => {
+      const text = document.getElementById('postText').value.trim();
+      const file = document.getElementById('imageInput').files[0];
+      if (!text && !file) return;
+
+      const post = {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        text,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        likes: 0,
+        likedBy: []
+      };
+
+      if (file) {
+        const ref = storage.ref('posts/' + Date.now() + '_' + file.name);
+        await ref.put(file);
+        post.imageUrl = await ref.getDownloadURL();
+      }
+
+      await db.collection('posts').add(post);
+      document.getElementById('postText').value = '';
+      document.getElementById('imageInput').value = '';
+    };
+
+    function loadPosts() {
+      db.collection('posts')
+        .orderBy('timestamp', 'desc')
+        .onSnapshot(snap => {
+          document.getElementById('feed').innerHTML = '';
+          snap.forEach(doc => {
+            const p = doc.data();
+            const el = document.createElement('div');
+            el.className = 'post';
+            el.innerHTML = `
+              <div class="avatar">${p.email[0].toUpperCase()}</div>
+              <div class="post-header">
+                <div class="name">${p.email.split('@')[0]}</div>
+                <div class="username">@\( {p.email.split('@')[0]} · \){timeAgo(p.timestamp)}</div>
+              </div>
+              <div class="post-content">${p.text || ''}</div>
+              \( {p.imageUrl ? `<img src=" \){p.imageUrl}" class="post-image" loading="lazy"/>` : ''}
+              <div class="post-footer">
+                <button onclick="like('\( {doc.id}', this)" class="like-btn \){p.likedBy?.includes(currentUser.uid) ? 'liked' : ''}">
+                  Heart ${p.likes || 0}
+                </button>
+              </div>
+            `;
+            document.getElementById('feed').appendChild(el);
+          });
+        });
+    }
+
+    window.like = async (id, btn) => {
+      const ref = db.collection('posts').doc(id);
+      const snap = await ref.get();
+      const data = snap.data();
+      const liked = data.likedBy?.includes(currentUser.uid);
+
+      if (liked) {
+        ref.update({
+          likes: firebase.firestore.FieldValue.increment(-1),
+          likedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
+        });
+        btn.classList.remove('liked');
+      } else {
+        ref.update({
+          likes: firebase.firestore.FieldValue.increment(1),
+          likedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+        });
+        btn.classList.add('liked');
+      }
+    };
+
+    function timeAgo(ts) {
+      if (!ts) return 'now';
+      const sec = (Date.now() - ts.toDate()) / 1000;
+      if (sec < 60) return 'now';
+      if (sec < 3600) return Math.floor(sec/60) + 'm';
+      if (sec < 86400) return Math.floor(sec/3600) + 'h';
+      return Math.floor(sec/86400) + 'd';
+    }
+  </script>
+
+  <!-- Make it installable -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
+</body>
+</html>
